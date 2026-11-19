@@ -145,11 +145,28 @@ export const createAnnouncement = async (req, res) => {
 
         const { title, description, category_id, category, author } = req.body;
 
-        const selectedCategoryId = category_id || category;
-
-        if (!title || !description || !selectedCategoryId) {
+        if (!title || !description || (!category_id && !category)) {
             return res.status(400).json({ message: "Title, description, category, and author are required" });
         }
+
+        const requestedCategory = String(category_id || category).trim();
+        const numericCategoryId = Number(requestedCategory);
+        const [categoryRows] = Number.isInteger(numericCategoryId) && numericCategoryId > 0
+            ? await db.query(
+                `SELECT id, category_name FROM announcement_category WHERE id = ?`,
+                [numericCategoryId]
+            )
+            : await db.query(
+                `SELECT id, category_name FROM announcement_category WHERE LOWER(category_name) = LOWER(?) LIMIT 1`,
+                [requestedCategory]
+            );
+
+        if (categoryRows.length === 0) {
+            return res.status(400).json({ message: "Please select a valid announcement category" });
+        }
+
+        const selectedCategoryId = categoryRows[0].id;
+        const selectedCategoryName = categoryRows[0].category_name;
 
         let file_name = null;
         let file_path = null;
@@ -175,7 +192,7 @@ export const createAnnouncement = async (req, res) => {
             user_id,
             title,
             selectedCategoryId,
-            category || selectedCategoryId,
+            selectedCategoryName,
             author,
             description,
             file_name,
