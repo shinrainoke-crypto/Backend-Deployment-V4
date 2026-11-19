@@ -2,6 +2,15 @@ import db from "../database/database.js"; // Connection pool
 import fs from "fs";
 import { createNotificationForStudents } from "./notificationController.js";
 
+const isValidDateOnly = (value) => {
+    if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        return false;
+    }
+
+    const date = new Date(`${value}T00:00:00.000Z`);
+    return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+};
+
 // -----------------------------------------------------
 // CREATE EVENT
 // -----------------------------------------------------
@@ -81,6 +90,24 @@ export const createEvent = async (req, res) => {
     // ----------------------------
     if (!title || !description || !category_id || !organizer || !startDate || !endDate || !startTime || !endTime || !location || !targetAudience) {
         return res.status(400).json({ message: "Please fill in all required fields." });
+    }
+
+    const datesAreValid = isValidDateOnly(startDate) && isValidDateOnly(endDate);
+    if (!datesAreValid || endDate < startDate) {
+        for (const files of Object.values(req.files || {})) {
+            for (const file of files) {
+                if (file.path && fs.existsSync(file.path)) {
+                    fs.unlink(file.path, error => {
+                        if (error) console.error("Failed to remove invalid event upload:", error);
+                    });
+                }
+            }
+        }
+
+        const message = datesAreValid
+            ? "End date cannot be before start date."
+            : "Please provide valid start and end dates.";
+        return res.status(400).json({ message });
     }
 
     let regCount = null;
