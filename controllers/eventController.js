@@ -277,12 +277,17 @@ export const getEventById = async (req, res) => {
 
     try {
         const query = `
-            SELECT e.*, c.category_name 
+            SELECT e.*, c.category_name,
+                   EXISTS (
+                       SELECT 1
+                       FROM event_attendees ea
+                       WHERE ea.event_id = e.event_id AND ea.user_id = ?
+                   ) AS joined
             FROM event e
             LEFT JOIN category c ON e.category_id = c.category_id
             WHERE e.event_id = ?
         `;
-        const [results] = await db.execute(query, [id]);
+        const [results] = await db.execute(query, [req.user.id, id]);
         console.log('Query results:', results);
 
         if (results.length === 0) return res.status(404).json({ message: 'Event not found' });
