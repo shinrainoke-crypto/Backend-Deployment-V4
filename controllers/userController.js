@@ -71,8 +71,11 @@ export const getUserProfile = async (req, res) => {
 
 // Update user profile
 export const updateUserProfile = async (req, res) => {
+  let userId;
+  let updatedEmail;
+
   try {
-    const userId = req.user.id;
+    userId = req.user.id;
 
     const {
       firstname,
@@ -99,6 +102,21 @@ export const updateUserProfile = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
 
     const user = results[0];
+    updatedEmail =
+      typeof email === "string" && email.trim()
+        ? email.trim().toLowerCase()
+        : user.email;
+
+    const [existingEmail] = await db.query(
+      "SELECT user_id FROM user WHERE LOWER(email) = ? AND user_id <> ? LIMIT 1",
+      [updatedEmail.toLowerCase(), userId]
+    );
+    if (existingEmail.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: "This email address is already associated with another account.",
+      });
+    }
 
     let hashedPassword = user.password;
 
@@ -139,7 +157,7 @@ export const updateUserProfile = async (req, res) => {
         lastname || user.lastname,
         birthday || user.birthday,
         gender || user.gender,
-        email || user.email,
+        updatedEmail,
         student_id || user.student_id,
         department || user.department,
         year_level || user.year_level,
@@ -157,6 +175,23 @@ export const updateUserProfile = async (req, res) => {
       profile_image: profileImagePath,
     });
   } catch (err) {
+    if (err.code === "ER_DUP_ENTRY" && userId && updatedEmail) {
+      try {
+        const [existingEmail] = await db.query(
+          "SELECT user_id FROM user WHERE LOWER(email) = ? AND user_id <> ? LIMIT 1",
+          [updatedEmail.toLowerCase(), userId]
+        );
+        if (existingEmail.length > 0) {
+          return res.status(409).json({
+            success: false,
+            message: "This email address is already associated with another account.",
+          });
+        }
+      } catch (emailCheckError) {
+        console.error("Failed to check for duplicate profile email:", emailCheckError);
+      }
+    }
+
     console.error("UPDATE PROFILE ERROR:", err);
     res.status(500).json({ message: "Server error", error: err.message });
   }
