@@ -9,7 +9,14 @@ export const getUserJoinedEvents = async (req, res) => {
     const userId = req.user.id;
 
     const [events] = await db.query(
-      `SELECT e.event_id, e.title, e.event_date AS date, e.event_time, e.start_date, e.start_time, e.end_date, e.end_time, e.description
+      `SELECT e.event_id, e.title,
+              DATE_FORMAT(e.event_date, '%Y-%m-%d') AS date,
+              e.event_time,
+              DATE_FORMAT(e.start_date, '%Y-%m-%d') AS start_date,
+              e.start_time,
+              DATE_FORMAT(e.end_date, '%Y-%m-%d') AS end_date,
+              e.end_time,
+              e.description
        FROM event_attendees ea
        JOIN event e ON ea.event_id = e.event_id
        WHERE ea.user_id = ?`,
