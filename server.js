@@ -11,6 +11,7 @@ import http from "http"; // <-- add this
 import { Server as SocketIOServer } from "socket.io"; // <-- add this
 import db from "./database/database.js";
 import { deactivateInactiveAccounts } from "./service/inactiveAccountService.js";
+import { updateArchivedStatus } from "./service/archiveService.js";
 
 // --- Routes ---
 import authRoutes from "./routes/auth.js";
@@ -154,6 +155,21 @@ server.listen(PORT, () => {
         }
     };
 
+    const runArchiveStatusUpdate = async () => {
+        try {
+            const { eventsArchived, announcementsArchived } = await updateArchivedStatus();
+            if (eventsArchived > 0 || announcementsArchived > 0) {
+                console.log(
+                    `Archived ${eventsArchived} event(s) and ${announcementsArchived} announcement(s).`
+                );
+            }
+        } catch (err) {
+            console.error("Failed to update archived item statuses:", err);
+        }
+    };
+
     runInactiveAccountCheck();
     setInterval(runInactiveAccountCheck, 5 * 60 * 1000);
+    runArchiveStatusUpdate();
+    setInterval(runArchiveStatusUpdate, 15 * 60 * 1000);
 });

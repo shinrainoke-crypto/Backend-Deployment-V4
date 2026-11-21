@@ -88,40 +88,45 @@ export const archiveController = async (req, res) => {
 };
 
 export const deleteArchivedItem = async (req, res) => {
-  const { id, type } = req.body;
-  const user_id = req.user?.id;
-  const isAdmin = req.user?.role === 'admin'; // assuming you have role stored in JWT
+  const id = req.body?.id;
+  const type = req.body?.type;
+  const userId = req.user?.id;
+  const isAdmin = req.user?.role_id === 3;
 
-  if (!user_id) return res.status(401).json({ success: false, message: "Unauthorized" });
+  if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
+  if (!["Event", "Announcement"].includes(type)) {
+    return res.status(400).json({ success: false, message: "Invalid archived item type" });
+  }
+  if (!Number.isSafeInteger(Number(id)) || Number(id) <= 0) {
+    return res.status(400).json({ success: false, message: "Invalid archived item ID" });
+  }
 
   try {
-    if (type === 'Event') {
-      // Admin can delete any, user can delete only their own
-      const [rows] = await db.execute(
-        "SELECT user_id FROM event WHERE event_id = ?",
-        [id]
-      );
-      if (rows.length === 0) return res.status(404).json({ success: false, message: "Event not found" });
-      if (!isAdmin && rows[0].user_id !== user_id) {
-        return res.status(403).json({ success: false, message: "Forbidden: Cannot delete this event" });
-      }
+    const table = type === "Event" ? "event" : "announcement";
+    const idColumn = type === "Event" ? "event_id" : "announcement_id";
+    const [rows] = await db.execute(
+      `SELECT user_id FROM ${table} WHERE ${idColumn} = ? AND LOWER(status) = 'archived'`,
+      [Number(id)]
+    );
 
-      await db.execute("DELETE FROM event WHERE event_id = ?", [id]);
-
-    } else if (type === 'Announcement') {
-      const [rows] = await db.execute(
-        "SELECT user_id FROM announcement WHERE announcement_id = ?",
-        [id]
-      );
-      if (rows.length === 0) return res.status(404).json({ success: false, message: "Announcement not found" });
-      if (!isAdmin && rows[0].user_id !== user_id) {
-        return res.status(403).json({ success: false, message: "Forbidden: Cannot delete this announcement" });
-      }
-
-      await db.execute("DELETE FROM announcement WHERE announcement_id = ?", [id]);
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: "Archived item not found" });
     }
 
-    res.json({ success: true, message: "Deleted successfully." });
+    if (!isAdmin && String(rows[0].user_id) !== String(userId)) {
+      return res.status(403).json({ success: false, message: "You can only delete your own archived items" });
+    }
+
+    const [result] = await db.execute(
+      `DELETE FROM ${table} WHERE ${idColumn} = ? AND LOWER(status) = 'archived'`,
+      [Number(id)]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(409).json({ success: false, message: "Archived item is no longer available" });
+    }
+
+    return res.json({ success: true, message: "Archived item permanently deleted." });
 
   } catch (err) {
     console.error(err);
