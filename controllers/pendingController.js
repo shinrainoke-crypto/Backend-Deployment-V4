@@ -139,12 +139,15 @@ export const getUserPendingItems = async (req, res) => {
 
     // Fetch only pending events for this user
     const eventsSql = `
-      SELECT event_id AS id, title, category_id, organizer_name AS organizer, created_at AS createdAt,
-             'Event' AS type, location, event_date, event_time, audience, number_of_registration,
-             event_link, description, event_image, approval_status AS status
-      FROM event
-      WHERE approval_status = 'pending' AND user_id = ? AND status != 'archived'
-      ORDER BY created_at DESC
+      SELECT e.event_id AS id, e.title, e.category_id, c.category_name AS category,
+             e.organizer_name AS organizer, e.created_at AS createdAt,
+             'Event' AS type, e.location, e.event_date, e.event_time, e.audience,
+             e.number_of_registration, e.event_link, e.description, e.event_image,
+             e.approval_status AS status
+      FROM event e
+      LEFT JOIN category c ON e.category_id = c.category_id
+      WHERE e.approval_status = 'pending' AND e.user_id = ? AND e.status != 'archived'
+      ORDER BY e.created_at DESC
     `;
 
     // Fetch only pending announcements for this user
