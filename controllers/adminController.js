@@ -49,3 +49,62 @@ export const approveOrganizer = async (req, res) => {
     return res.status(500).json({ msg: "Server error" });
   }
 };
+
+export const rejectOrganizer = async (req, res) => {
+  const user_id = req.body?.user_id;
+
+  if (!user_id) {
+    return res.status(400).json({ msg: "User ID is required" });
+  }
+
+  try {
+    const [results] = await db.query(
+      "SELECT firstname, email FROM user WHERE user_id = ? AND status = 'Pending' AND role_id IS NULL",
+      [user_id]
+    );
+
+    if (results.length === 0) {
+      return res.status(404).json({ msg: "Pending organizer request not found" });
+    }
+
+    const user = results[0];
+    const [updateResult] = await db.query(
+      `UPDATE user
+       SET status = 'Rejected'
+       WHERE user_id = ? AND status = 'Pending' AND role_id IS NULL`,
+      [user_id]
+    );
+
+    if (updateResult.affectedRows === 0) {
+      return res.status(409).json({ msg: "Organizer request is no longer pending" });
+    }
+
+    let emailSent = false;
+    try {
+      const emailResult = await sendEmail(
+        user.email,
+        "Your Organizer Application Update",
+        `<h1>Organizer application update</h1>
+         <p>Your request to become an organizer was not approved at this time.</p>
+         <p>If you have questions, please contact the site administrators.</p>`
+      );
+      emailSent = emailResult.success;
+
+      if (!emailSent) {
+        console.error("Organizer rejection email failed:", emailResult.message);
+      }
+    } catch (emailError) {
+      console.error("Failed to send organizer rejection email:", emailError);
+    }
+
+    return res.json({
+      msg: emailSent
+        ? "Organizer request rejected and applicant notified."
+        : "Organizer request rejected, but the notification email could not be sent.",
+      emailSent,
+    });
+  } catch (err) {
+    console.error("Admin organizer rejection error:", err);
+    return res.status(500).json({ msg: "Server error" });
+  }
+};
