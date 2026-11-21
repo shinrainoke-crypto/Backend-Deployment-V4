@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { deactivateInactiveAccounts } from "../service/inactiveAccountService.js";
 
 // Ensure upload directory exists
 const uploadDir = "uploads/profiles";
@@ -201,6 +202,7 @@ export const updateUserProfile = async (req, res) => {
 // Get all users
 export const getAllUsers = async (req, res) => {
   try {
+    await deactivateInactiveAccounts();
     const [results] = await db.query("SELECT * FROM user");
     res.status(200).json(results);
   } catch (err) {
@@ -213,9 +215,17 @@ export const getAllUsers = async (req, res) => {
 export const deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const [result] = await db.query("DELETE FROM user WHERE user_id = ?", [id]);
+    const [result] = await db.query(
+      "DELETE FROM user WHERE user_id = ? AND LOWER(status) IN ('inactive', 'banned')",
+      [id]
+    );
 
-    if (result.affectedRows === 0) return res.status(404).json({ error: "User not found" });
+    if (result.affectedRows === 0) {
+      const [users] = await db.query("SELECT status FROM user WHERE user_id = ?", [id]);
+      if (users.length === 0) return res.status(404).json({ error: "User not found" });
+      return res.status(403).json({ error: "Only inactive or banned accounts can be deleted" });
+    }
+
     res.json({ success: true, message: "User deleted successfully" });
   } catch (err) {
     console.error(err);

@@ -10,6 +10,7 @@ import rateLimit from "express-rate-limit";
 import http from "http"; // <-- add this
 import { Server as SocketIOServer } from "socket.io"; // <-- add this
 import db from "./database/database.js";
+import { deactivateInactiveAccounts } from "./service/inactiveAccountService.js";
 
 // --- Routes ---
 import authRoutes from "./routes/auth.js";
@@ -141,4 +142,18 @@ const PORT = process.env.PORT || 5100;
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`Access the server at http://localhost:${PORT}`);
+
+    const runInactiveAccountCheck = async () => {
+        try {
+            const updatedCount = await deactivateInactiveAccounts();
+            if (updatedCount > 0) {
+                console.log(`Marked ${updatedCount} inactive account(s) as inactive.`);
+            }
+        } catch (err) {
+            console.error("Failed to check for inactive accounts:", err);
+        }
+    };
+
+    runInactiveAccountCheck();
+    setInterval(runInactiveAccountCheck, 5 * 60 * 1000);
 });
