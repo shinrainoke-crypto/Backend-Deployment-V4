@@ -9,6 +9,7 @@ export const getPendingItems = async (req, res) => {
         e.title,
         c.category_name AS category,
         e.organizer_name,
+        CONCAT_WS(' ', u.firstname, u.lastname) AS creator_name,
         e.created_at,
         'Event' AS type,
         e.location,
@@ -26,14 +27,17 @@ export const getPendingItems = async (req, res) => {
         e.approval_status AS status
       FROM event e
       JOIN category c ON e.category_id = c.category_id
+      LEFT JOIN user u ON u.user_id = e.user_id
       WHERE e.approval_status = 'Pending'
     `;
 
     const announcementsSql = `
-      SELECT announcement_id, title, category, author AS author, created_at, 'Announcement' AS type,
-             description, approval_status AS status
-      FROM announcement
-      WHERE approval_status = 'Pending'
+      SELECT a.announcement_id, a.title, a.category, a.author, CONCAT_WS(' ', u.firstname, u.lastname) AS creator_name,
+             a.created_at, 'Announcement' AS type,
+             a.description, a.approval_status AS status
+      FROM announcement a
+      LEFT JOIN user u ON u.user_id = a.user_id
+      WHERE a.approval_status = 'Pending'
     `;
 
     const [events] = await db.query(eventsSql);
