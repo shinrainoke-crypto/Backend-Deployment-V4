@@ -35,8 +35,11 @@ export const getOrganizerEvents = async (req, res) => {
   try {
     const organizerId = req.user.id; // from JWT
     const [events] = await db.query(
-      `SELECT e.event_id, e.title, e.event_date AS date, e.event_time, e.start_date, e.start_time, e.end_date, e.end_time, e.category
+      `SELECT e.event_id, e.title, e.event_date AS date, e.event_time,
+              e.start_date, e.start_time, e.end_date, e.end_time,
+              c.category_name AS category_name
        FROM event e
+       LEFT JOIN category c ON e.category_id = c.category_id
        WHERE e.user_id = ? AND e.approval_status = 'approved' AND e.status != 'archived'`,
       [organizerId]
     );
