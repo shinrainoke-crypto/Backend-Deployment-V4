@@ -196,7 +196,10 @@ export const getAllEvents = async (req, res) => {
         if (roleId === 3) {
             // Admin: see all events that are approved
             query = `
-                SELECT e.event_id, e.title, e.description, e.event_date, e.event_time, e.start_date, e.start_time, e.end_date, e.end_time,
+                SELECT e.event_id, e.title, e.description,
+                       DATE_FORMAT(e.event_date, '%Y-%m-%d') AS event_date, e.event_time,
+                       DATE_FORMAT(e.start_date, '%Y-%m-%d') AS start_date, e.start_time,
+                       DATE_FORMAT(e.end_date, '%Y-%m-%d') AS end_date, e.end_time,
                        e.category_id, c.category_name, e.organizer_name, e.approval_status AS status, e.created_at 
                 FROM event e
                 LEFT JOIN category c ON e.category_id = c.category_id
@@ -207,7 +210,10 @@ export const getAllEvents = async (req, res) => {
         } else if (roleId === 1) {
             // Role 1: also see all approved events
             query = `
-                SELECT e.event_id, e.title, e.description, e.location, e.event_date, e.event_time, e.start_date, e.start_time, e.end_date, e.end_time,
+                SELECT e.event_id, e.title, e.description, e.location,
+                       DATE_FORMAT(e.event_date, '%Y-%m-%d') AS event_date, e.event_time,
+                       DATE_FORMAT(e.start_date, '%Y-%m-%d') AS start_date, e.start_time,
+                       DATE_FORMAT(e.end_date, '%Y-%m-%d') AS end_date, e.end_time,
                        e.category_id, c.category_name, e.organizer_name, e.approval_status, e.status, e.created_at 
                 FROM event e
                 LEFT JOIN category c ON e.category_id = c.category_id
@@ -218,7 +224,10 @@ export const getAllEvents = async (req, res) => {
         } else if (roleId === 2) {
             // Organizer: only their own events, approved/rejected
             query = `
-                SELECT e.event_id, e.title, e.description, e.event_date, e.event_time, e.start_date, e.start_time, e.end_date, e.end_time,
+                SELECT e.event_id, e.title, e.description,
+                       DATE_FORMAT(e.event_date, '%Y-%m-%d') AS event_date, e.event_time,
+                       DATE_FORMAT(e.start_date, '%Y-%m-%d') AS start_date, e.start_time,
+                       DATE_FORMAT(e.end_date, '%Y-%m-%d') AS end_date, e.end_time,
                        e.category_id, c.category_name, e.organizer_name, e.approval_status AS status, e.created_at 
                 FROM event e
                 LEFT JOIN category c ON e.category_id = c.category_id
@@ -278,6 +287,9 @@ export const getEventById = async (req, res) => {
     try {
         const query = `
             SELECT e.*, c.category_name,
+                   DATE_FORMAT(e.event_date, '%Y-%m-%d') AS status_event_date,
+                   DATE_FORMAT(e.start_date, '%Y-%m-%d') AS status_start_date,
+                   DATE_FORMAT(e.end_date, '%Y-%m-%d') AS status_end_date,
                    EXISTS (
                        SELECT 1
                        FROM event_attendees ea
